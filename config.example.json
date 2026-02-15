@@ -1,0 +1,8 @@
+{
+    "token": "YOUR_TOKEN_HERE",
+    "channel_id": 000000000000000000,
+    "keywords": [
+        "python", "java", "javascript", "c#", "ruby", "go", "rust", "php", "swift", "kotlin", "typescript", "linux", "windows", "macos", "android", "ios", "web development", "machine learning", "data science", "artificial intelligence", "cloud computing", "cybersecurity", "blockchain", "devops", "docker", "kubernetes", "aws", "azure", "google cloud", "git", "github", "gitlab", "bitbucket", "programming", "coding", "software development", "open source", "technology", "tech news", "no starch press", "o'reilly", "packt", "wiley"
+
+    ]
+}

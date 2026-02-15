@@ -1,0 +1,27 @@
+# --- Security (NEVER COMMIT THESE) ---
+config.json
+.env
+
+# --- Python ---
+__pycache__/
+*.py[cod]
+*$py.class
+
+# --- Virtual Environments ---
+venv/
+env/
+.venv/
+.env/
+
+# --- Selenium / Browser Drivers ---
+chromedriver
+geckodriver
+*.log
+
+# --- OS Files ---
+.DS_Store
+Thumbs.db
+
+# --- Runtime Data ---
+# Optional: Ignore the "memory" file so you don't commit your personal seen list
+data/seen_bundles.json
