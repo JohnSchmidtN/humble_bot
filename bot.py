@@ -9,6 +9,7 @@ import json
 import os
 import asyncio
 import time
+import re
 from datetime import datetime
 
 # --- CONFIGURATION LOADING ---
@@ -65,35 +66,28 @@ class HumbleScraper(commands.Cog):
         chrome_options.add_argument("--disable-gpu")
         chrome_options.add_argument("--no-sandbox")
         chrome_options.add_argument("--window-size=1920,1080")
-        
-        # This keeps the browser log clean
         chrome_options.add_argument("--log-level=3") 
 
+        driver = None
         try:
-            # Auto-install the correct chromedriver
             service = Service(ChromeDriverManager().install())
             driver = webdriver.Chrome(service=service, options=chrome_options)
             
-            # Go to the bundles page
             url = "https://www.humblebundle.com/bundles"
             driver.get(url)
             
-            # WAIT for JavaScript to load the deals (Crucial step!)
+            # WAIT for JavaScript to load content
             time.sleep(5) 
             
-            # Get the fully rendered HTML
             page_source = driver.page_source
-            driver.quit() # Close Chrome
+            driver.quit() # Close Chrome immediately after fetching
+            driver = None 
             
-            # Parse with BeautifulSoup
             soup = BeautifulSoup(page_source, "html.parser")
-            
-            print(f"✅ Page Loaded. found {len(soup.find_all('a', href=True))} links.")
+            print(f"✅ Page Loaded. Analyzing {len(soup.find_all('a', href=True))} links...")
 
             found_new = False
             
-            # Look for bundle tiles
-            # Humble bundle tiles are usually wrapped in anchors
             for link_tag in soup.find_all('a', href=True):
                 href = link_tag['href']
                 
@@ -105,15 +99,14 @@ class HumbleScraper(commands.Cog):
                 if href in ["/bundles", "/books", "/software", "/games"]:
                     continue
 
-                # ID and Name Extraction
                 machine_name = href.split('/')[-1]
                 
-                # Try to get text, fallback to aria-label
+                # Get Title
                 name = link_tag.get_text(strip=True)
                 if not name:
                     name = link_tag.get('aria-label') or machine_name
 
-                # Filter out garbage short names (sometimes "Image" or "Detail")
+                # Filter out garbage short names
                 if len(name) < 3: 
                     continue
 
@@ -123,10 +116,21 @@ class HumbleScraper(commands.Cog):
                 if machine_name in self.seen_bundles:
                     continue
 
-                # Check 2: Keywords
+                # Check 2: Regex Keyword Matching (Fixes "Go" matching "Dragon")
                 search_text = (name + " " + machine_name).lower()
+                match_found = False
                 
-                if any(keyword in search_text for keyword in KEYWORDS):
+                for keyword in KEYWORDS:
+                    # Escape keyword to handle special chars like c++ or c#
+                    # (?<![a-z]) ensures no letter comes before the keyword
+                    # (?![a-z]) ensures no letter comes after the keyword
+                    pattern = r"(?<![a-z])" + re.escape(keyword) + r"(?![a-z])"
+                    
+                    if re.search(pattern, search_text):
+                        match_found = True
+                        break # Stop checking other keywords if one matches
+
+                if match_found:
                     print(f"🚨 MATCH FOUND: {name}")
                     await self.post_deal(name, full_link, machine_name)
                     self.seen_bundles.add(machine_name)
@@ -140,11 +144,8 @@ class HumbleScraper(commands.Cog):
 
         except Exception as e:
             print(f"❌ Error during scrape: {e}")
-            # Ensure driver closes if it crashes
-            try:
+            if driver:
                 driver.quit()
-            except:
-                pass
 
     async def post_deal(self, name, link, machine_name):
         channel = self.bot.get_channel(CHANNEL_ID)
@@ -152,8 +153,7 @@ class HumbleScraper(commands.Cog):
             print(f"❌ Error: Could not find channel {CHANNEL_ID}")
             return
 
-    
-        # Discord limit is 256. We subtract some space for our "New CS Bundle" prefix.
+        # --- FIX: Truncate Title to avoid 400 Bad Request ---
         safe_name = name
         if len(safe_name) > 200:
             safe_name = safe_name[:200] + "..."
@@ -169,6 +169,10 @@ class HumbleScraper(commands.Cog):
 
         await channel.send(embed=embed)
         print(f"🚀 Sent alert for: {safe_name}")
+
+    @check_deals.before_loop
+    async def before_check_deals(self):
+        await self.bot.wait_until_ready()
 
 # --- RUN BOT ---
 @bot.event
