@@ -99,7 +99,8 @@ class HumbleScraper(commands.Cog):
                 if href in ["/bundles", "/books", "/software", "/games"]:
                     continue
 
-                machine_name = href.split('/')[-1]
+                # Split by '/' to get the last part, then split by '?' to remove tracking codes
+                machine_name = href.split('/')[-1].split('?')[0]
                 
                 # Get Title
                 name = link_tag.get_text(strip=True)
